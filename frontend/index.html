@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sahayika (সহায়িকা) - Hyperlocal Women Micro-Jobs</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Plus Jakarta Sans', 'Hind Siliguri', sans-serif; }
+  </style>
+</head>
+<body class="bg-rose-50/30 text-gray-800 min-h-screen p-4 flex justify-center items-start">
+
+  <div class="w-full max-w-md bg-white min-h-screen shadow-xl rounded-3xl p-5 border border-rose-100 flex flex-col">
+    
+    <!-- Top Header -->
+    <header class="text-center my-3 pb-3 border-b border-gray-100">
+      <div class="inline-flex items-center gap-2 bg-rose-100/70 text-rose-700 px-3 py-1 rounded-full text-xs font-semibold mb-2">
+        <span>📍 Kalyani, West Bengal</span>
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span class="text-emerald-700">Live</span>
+      </div>
+      <h1 class="text-2xl font-bold text-rose-600 tracking-tight">Sahayika (সহায়িকা)</h1>
+      <p class="text-xs text-gray-500 mt-0.5">Empowering Neighborhood Women Through Micro-Slots</p>
+    </header>
+
+    <!-- Voice Recording Section (Provider View) -->
+    <div class="bg-gradient-to-br from-rose-50 to-orange-50/50 p-5 rounded-2xl border border-rose-100 mb-6 text-center shadow-sm">
+      <h2 class="font-bold text-sm text-gray-800 mb-1">List Work via Voice (মুখে বলুন)</h2>
+      <p class="text-xs text-gray-500 mb-4">"Ami kal dupure 4-te tiffin banabo, 40 taka kore"</p>
+      
+      <button id="recordBtn" class="bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-medium rounded-full px-6 py-3 shadow-md transition-all flex items-center justify-center mx-auto gap-2">
+        <span id="micIcon" class="text-lg">🎙️</span>
+        <span id="btnText" class="text-sm">Tap to Speak</span>
+      </button>
+
+      <p id="statusText" class="text-xs mt-3 font-medium text-gray-500 transition-all">Microphone ready</p>
+      
+      <div id="transcriptBox" class="hidden mt-3 p-2.5 bg-white/80 rounded-xl text-xs text-left border border-rose-100 text-gray-700">
+        <span class="font-semibold text-rose-600 block text-[10px] uppercase">AI Heard:</span>
+        <span id="transcriptText"></span>
+      </div>
+    </div>
+
+    <!-- Consumer Feed Section -->
+    <div class="flex-1">
+      <div class="flex justify-between items-center mb-3">
+        <h2 class="font-bold text-sm text-gray-800">Available Nearby (কাছাকাছি কাজ)</h2>
+        <button onclick="loadSlots()" class="text-xs text-rose-600 font-semibold hover:underline flex items-center gap-1">
+          🔄 Refresh
+        </button>
+      </div>
+
+      <!-- Live Slots Container -->
+      <div id="slotsContainer" class="space-y-3 pb-8">
+        <div class="text-center py-8">
+          <div class="w-6 h-6 border-2 border-rose-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+          <p class="text-xs text-gray-400">Connecting to live cloud backend...</p>
+        </div>
+      </div>
+    </div>
+
+    <footer class="text-center text-[10px] text-gray-400 py-3 border-t border-gray-100 mt-auto">
+      Hacknix Season 2 • Built for JIS College & Kalyani Community
+    </footer>
+
+  </div>
+
+  <script>
+    const BACKEND_URL = "https://backend-11x2.onrender.com";
+
+    let mediaRecorder;
+    let audioChunks = [];
+    const recordBtn = document.getElementById("recordBtn");
+    const btnText = document.getElementById("btnText");
+    const micIcon = document.getElementById("micIcon");
+    const statusText = document.getElementById("statusText");
+    const transcriptBox = document.getElementById("transcriptBox");
+    const transcriptText = document.getElementById("transcriptText");
+    const slotsContainer = document.getElementById("slotsContainer");
+
+    // Microphone & Voice Handling
+    recordBtn.addEventListener("click", async () => {
+      if (!mediaRecorder || mediaRecorder.state === "inactive") {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          
+          // Safari iOS vs Android/Chrome codec detection
+          let mimeType = 'audio/webm';
+          if (!MediaRecorder.isTypeSupported('audio/webm')) {
+            if (MediaRecorder.isTypeSupported('audio/mp4')) {
+              mimeType = 'audio/mp4';
+            } else {
+              mimeType = '';
+            }
+          }
+
+          const options = mimeType ? { mimeType } : {};
+          mediaRecorder = new MediaRecorder(stream, options);
+          audioChunks = [];
+
+          mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) audioChunks.push(e.data);
+          };
+
+          mediaRecorder.onstop = handleVoiceUpload;
+
+          mediaRecorder.start();
+          recordBtn.className = "bg-red-600 hover:bg-red-700 active:scale-95 text-white font-medium rounded-full px-6 py-3 shadow-md transition-all flex items-center justify-center mx-auto gap-2 animate-pulse";
+          btnText.innerText = "Stop & List";
+          micIcon.innerText = "⏹️";
+          statusText.innerText = "Listening... Speak your service in Bengali or Hindi";
+          statusText.className = "text-xs mt-3 font-semibold text-rose-600";
+        } catch (err) {
+          statusText.innerText = "Microphone access denied! Allow microphone in browser settings.";
+          statusText.className = "text-xs mt-3 font-semibold text-red-500";
+        }
+      } else {
+        mediaRecorder.stop();
+        recordBtn.className = "bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-medium rounded-full px-6 py-3 shadow-md transition-all flex items-center justify-center mx-auto gap-2";
+        btnText.innerText = "Tap to Speak";
+        micIcon.innerText = "🎙️";
+        statusText.innerText = "Processing with Whisper & Llama-3...";
+        statusText.className = "text-xs mt-3 font-semibold text-amber-600";
+      }
+    });
+
+    async function handleVoiceUpload() {
+      const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+      const formData = new FormData();
+      formData.append("audio", audioBlob, "user_voice.webm");
+
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/voice-to-slot`, {
+          method: "POST",
+          body: formData
+        });
+
+        if (!res.ok) throw new Error("Upload failed");
+        
+        const result = await res.json();
+        
+        transcriptBox.classList.remove("hidden");
+        transcriptText.innerText = `"${result.transcript}"`;
+        statusText.innerText = `✅ Created: ${result.slot.title} (₹${result.slot.price})`;
+        statusText.className = "text-xs mt-3 font-semibold text-emerald-600";
+
+        loadSlots();
+      } catch (err) {
+        console.error(err);
+        statusText.innerText = "Error uploading audio. Check your backend logs.";
+        statusText.className = "text-xs mt-3 font-semibold text-red-500";
+      }
+    }
+
+    // Fetch Slots from Render Backend
+    async function loadSlots() {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/slots`);
+        if (!res.ok) throw new Error("Could not fetch slots");
+        
+        const slots = await res.json();
+        slotsContainer.innerHTML = "";
+
+        if (!slots || slots.length === 0) {
+          slotsContainer.innerHTML = `<p class="text-xs text-gray-400 text-center py-6">No active slots right now. Be the first to speak one!</p>`;
+          return;
+        }
+
+        slots.forEach(slot => {
+          const upiId = slot.profiles?.upi_id || "9876543210@paytm";
+          const name = slot.profiles?.name || "Sahayika Provider";
+          const upiLink = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(name)}&am=${slot.price}&cu=INR&tn=Sahayika_Booking_${slot.id}`;
+
+          slotsContainer.innerHTML += `
+            <div class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm hover:border-rose-200 transition flex justify-between items-center gap-3">
+              <div class="flex-1">
+                <div class="flex items-center gap-1.5 mb-1">
+                  <span class="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full ${
+                    slot.category === 'tiffin' ? 'bg-orange-100 text-orange-700' :
+                    slot.category === 'tailoring' ? 'bg-purple-100 text-purple-700' :
+                    'bg-rose-100 text-rose-700'
+                  }">
+                    ${slot.category}
+                  </span>
+                  <span class="text-[11px] text-gray-400">⏰ ${slot.slot_time}</span>
+                </div>
+                <h3 class="font-bold text-gray-800 text-sm leading-tight">${slot.title}</h3>
+                <p class="text-[11px] text-gray-400 mt-1">
+                  By <span class="font-medium text-gray-600">${name}</span> • 📍 ${slot.profiles?.zone || 'Kalyani'}
+                </p>
+              </div>
+
+              <div class="text-right flex flex-col items-end shrink-0">
+                <p class="text-base font-extrabold text-rose-600">₹${slot.price}</p>
+                <a href="${upiLink}" class="mt-1.5 inline-block bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-[11px] font-bold px-3 py-1.5 rounded-xl shadow-sm transition">
+                  Pay UPI
+                </a>
+              </div>
+            </div>
+          `;
+        });
+      } catch (err) {
+        console.error(err);
+        slotsContainer.innerHTML = `
+          <div class="text-center py-6 text-xs text-amber-600 bg-amber-50 rounded-2xl p-4 border border-amber-200">
+            <p class="font-bold">Render Free Server Waking Up...</p>
+            <p class="text-[11px] text-gray-500 mt-1">Free instances spin down when inactive. Please wait 15 seconds and tap Refresh.</p>
+            <button onclick="loadSlots()" class="mt-2 bg-amber-600 text-white text-xs px-3 py-1 rounded-lg">Retry Now</button>
+          </div>
+        `;
+      }
+    }
+
+    // Initial slot load on startup
+    loadSlots();
+  </script>
+</body>
+</html>
